@@ -32,8 +32,8 @@ BUTTON_SENSORS_INPUTS UI::inputReceived() {
     static int currentChannel = 0;
     static unsigned long lastMillis = 0;
     static unsigned long lastButtonPressTime = 0;
-    static unsigned long buttonHoldStartTime = 0;
-    #define HOLD_TIME_THRESHOLD 400
+    static unsigned long buttonHoldStartTime[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    #define HOLD_TIME_THRESHOLD 5
     #define BUTTON_HOLD_DELAY 500
 
     // Select the current MUX channel
@@ -46,16 +46,26 @@ BUTTON_SENSORS_INPUTS UI::inputReceived() {
         // Read the button state after the delay
         int buttonState = digitalRead(IO_IN);
         if (buttonState == LOW) {
+
+            //Serial.println("currentChannel: " + String(currentChannel) + ", Button hold start time: " + String(millis() - buttonHoldStartTime[currentChannel]));
+
             BUTTON_SENSORS_INPUTS button = static_cast<BUTTON_SENSORS_INPUTS>(currentChannel);
 
-            if (buttonHoldStartTime == 0) {
+            if (buttonHoldStartTime[currentChannel] == 0) {
                 // Start tracking time if this is the first LOW detection
-                buttonHoldStartTime = millis();
+                buttonHoldStartTime[currentChannel] = millis();
             }
 
             // Check if button is one of the first six real buttons and enforce delay if so
             if (button <= BUTTON_BACKWARDS && millis() - lastButtonPressTime < BUTTON_HOLD_DELAY) {
                 // Skip further processing if 500ms delay is not met
+                currentChannel = (currentChannel + 1) % 15;
+                return NO_INPUTS_RECEIVED;
+            }
+            //else if (button > BUTTON_BACKWARDS && millis() - buttonHoldStartTime[currentChannel] < HOLD_TIME_THRESHOLD) {
+            else if (millis() - buttonHoldStartTime[currentChannel] < HOLD_TIME_THRESHOLD) {
+
+                // Skip further processing if 400ms hold time is not met
                 currentChannel = (currentChannel + 1) % 15;
                 return NO_INPUTS_RECEIVED;
             }
@@ -68,12 +78,10 @@ BUTTON_SENSORS_INPUTS UI::inputReceived() {
             printButtonName(button);  // Print button name
             currentChannel = (currentChannel + 1) % 15;  // Move to the next channel for the next cycle
             return button;
-
-            
         }
         else {
             // Reset the button hold start time if the button is not pressed
-            buttonHoldStartTime = 0;
+            buttonHoldStartTime[currentChannel] = 0;
         }
 
         // Move to the next channel
@@ -81,6 +89,15 @@ BUTTON_SENSORS_INPUTS UI::inputReceived() {
     }
 
     return NO_INPUTS_RECEIVED;
+}
+
+void UI::turnLoopLED(int state) {
+    if (state == 1) {
+        leds[0] = CRGB(0, 20, 0); // Custom green with reduced intensity
+    } else {
+        leds[0] = CRGB::Black;
+    }
+    FastLED.show();
 }
 
 void UI::printButtonName(BUTTON_SENSORS_INPUTS button) {
@@ -122,9 +139,8 @@ void UI::selectMuxChannel(int channel) {
 }
 
 void UI::playSound() {
-    if (!isBusy()) {
-        executeCMD(0x0F, 0x01, 0x01);
-    }
+    executeCMD(0x0F, 0x01, 0x01);
+    Serial.println("Playing sound!");
 }
 
 void UI::executeCMD(byte CMD, byte Par1, byte Par2) {
@@ -152,7 +168,7 @@ bool UI::isBusy() {
     pinMode(BUSY_PIN, INPUT);
     int busyRead = digitalRead(BUSY_PIN);
     if (busyRead == 1) {
-        //Serial.println("DFPlayer not busy!");
+        Serial.println("DFPlayer not busy!");
         return false;
     }
     return true;
@@ -160,8 +176,8 @@ bool UI::isBusy() {
 
 void UI::setVolume(int volume) {
     executeCMD(0x06, 0, volume);
-    delay(10);
-    //Serial.println("Volume set to: " + String(volume));
+    //delay(1);
+    Serial.println("Volume set to: " + String(volume));
 }
 
 void UI::changeVolume(int volume) {

@@ -7,14 +7,21 @@
 #define MOVING_BACKWARD 1
 #define STOPPED 2
 
+#define LOOP_LED_ON 1
+#define LOOP_LED_OFF 0
+
 UI ui;
 Train train;
 Semaphore semaphores;
 int input;
 
-void handleSound();
+bool loopEnabled = false;
+
+void handleSoundAndLoop();
 void vallleyTrainStateMachine();
 String getStatusText(int input, int state, int trainState, int station, bool initiatedToRed);
+void loopAnalysis();
+void semaphoresTest();
 
 void setup() {
     Serial.begin(115200);
@@ -30,9 +37,9 @@ void loop() {
 
     input = ui.inputReceived();
 
-    // handleSound();
+    handleSoundAndLoop();
 
-    //vallleyTrainStateMachine();
+    vallleyTrainStateMachine();
 
 }
 
@@ -51,13 +58,15 @@ void vallleyTrainStateMachine() {
     enum TRAIN_STATE_TYPE {
         START,
         GOING_TO_STATION_X,
+        TURN_GREEN_LIGHT_ON_AT_STATION_X,
         WAITING_AT_STATION_X,
         GOING_TO_LAST_STATION,
-        GOING_BACKWARD
+        GOING_BACKWARD,
+        WAITING_BEFORE_NEXT_LOOP
     };
 
     if (millis() - lastPrintTime > PRINT_TIME) {
-        Serial.println(getStatusText(input, state, trainState, station, initiatedToRed));
+        //Serial.println(getStatusText(input, state, trainState, station, initiatedToRed));
         lastPrintTime = millis();
     }
 
@@ -66,26 +75,11 @@ void vallleyTrainStateMachine() {
         trainState = STOPPED;
     }
     else if (input == BUTTON_PLAY_PAUSE && trainState == STOPPED) {
-        if (input == SENSOR_LAST_STATION) {
-            train.moveBackward();
-            trainState = MOVING_BACKWARD;
-        }
-        else {
-            if (station != 0) {
-                train.moveForward();
-                state = GOING_TO_STATION_X;
-            }
-            else {
-                state = START;
-            }
-            trainState = MOVING_FORWARD;
-        }
+        state = GOING_TO_STATION_X;
+        train.moveForward();
+        trainState = MOVING_FORWARD;
     }
     else if (input == BUTTON_BACKWARDS) {
-        if (station == 0) {
-            Serial.println("Can't go backwards from start station");
-            return;
-        }
         if (trainState != STOPPED) {
             train.stop();
             trainState = STOPPED;
@@ -95,16 +89,13 @@ void vallleyTrainStateMachine() {
         trainState = MOVING_BACKWARD;
         state = GOING_BACKWARD;
     }
-    if (input == BUTTON_LOOP) {
-        //TODO Make train loop - mabye add a state of what the train is doing
-    }
 
     switch (state) {
         case START:
             if (!initiatedToRed && semaphores.initToRed()) {
                 initiatedToRed = true;
             }
-            else if (input == SENSOR_START && trainState == MOVING_FORWARD) {
+            else if (trainState == MOVING_FORWARD) {
                 train.moveForward();
                 initiatedToRed = false;
                 state = GOING_TO_STATION_X;
@@ -143,29 +134,44 @@ void vallleyTrainStateMachine() {
             if (input == SENSOR_STATION_1 || input == SENSOR_STATION_2 || input == SENSOR_STATION_3 || input == SENSOR_STATION_4 || input == SENSOR_STATION_5 || input == SENSOR_STATION_6 || input == SENSOR_LAST_STATION) {
                 train.stop();
                 trainState = STOPPED;
-                state = WAITING_AT_STATION_X;
+                state = TURN_GREEN_LIGHT_ON_AT_STATION_X;
                 Serial.println("Reached station " + String(station) + ". Waiting");
                 previousMillis = millis();
             }
-        
+            break;
+        case TURN_GREEN_LIGHT_ON_AT_STATION_X:
+            if (station != 7) {
+                if (semaphores.setSemaphore(station,GREEN)) {
+                    previousMillis = millis();
+                    state = WAITING_AT_STATION_X;
+                    break;
+                }
+            }
+            else {
+                Serial.println("Station 7 reached, not turning green light on");
+                previousMillis = millis();
+                state = WAITING_AT_STATION_X;
+                break;
+            }
             break;
         case WAITING_AT_STATION_X:
             if (millis() - previousMillis > WAITING_AT_SEMAPHORE_TIME) {
-                if (station == 7) {//Last station
+                if (station != 7) {
+                    train.moveForward();
+                    trainState = MOVING_FORWARD;
+                    state = GOING_TO_STATION_X;
+                    Serial.println("Going to station " + String(station + 1));
+                    break;
+                }
+                else if (station == 7) {
                     Serial.println("Youv'e reached the last station");
                     train.moveBackward();
                     trainState = MOVING_BACKWARD;
                     state = GOING_BACKWARD;
-                    break;
+                    break;                
                 }
                 else {
-                    if (semaphores.setSemaphore(station,GREEN)) {
-                        train.moveForward();
-                        trainState = MOVING_FORWARD;
-                        state = GOING_TO_STATION_X;
-                        Serial.println("Going to station " + String(station + 1));
-                        break;
-                    }
+                    Serial.println("Error, station not found");
                     break;
                 }
             }
@@ -174,29 +180,65 @@ void vallleyTrainStateMachine() {
             if (input == SENSOR_START && trainState == MOVING_BACKWARD) {
                 train.stop();
                 trainState = STOPPED;
-                semaphores.initToRed();
                 station = 0;
                 state = START;
+                if (loopEnabled) {
+                    state = WAITING_BEFORE_NEXT_LOOP;
+                    previousMillis = millis();
+                    break;
+                }
+            }
+            break;
+        case WAITING_BEFORE_NEXT_LOOP:
+            if (!initiatedToRed && semaphores.initToRed()) {
+                initiatedToRed = true;
+            }
+            if (millis() - previousMillis > WAITING_AT_SEMAPHORE_TIME) {
+                initiatedToRed = false;
+                train.moveForward();
+                trainState = MOVING_FORWARD;
+                state = GOING_TO_STATION_X;
+                Serial.println("New Loop, Going to station 1");
             }
             break;
     }
 
 }
 
-void handleSound() {
+void handleSoundAndLoop() {
+static unsigned long lastSoundTime = 0;
+static bool firstTimePlaying = true;
+#define PLAYING_TIME 324000
 
-    ui.playSound();
+    if (firstTimePlaying) {
+        ui.playSound();
+        firstTimePlaying = false;
+    }
 
+    if (millis() - lastSoundTime > PLAYING_TIME) {
+        ui.playSound();
+        lastSoundTime = millis();
+    }
+    
     if (input == BUTTON_VOLUME_UP) {
-        //TODO Increase train speed
         ui.changeVolume(VOLUME_UP);
     }
     if (input == BUTTON_VOLUME_DOWN) {
-        //TODO Decrease train speed
         ui.changeVolume(VOLUME_DOWN);
     }
     if (input == BUTTON_SOUND_ON_OFF) {
         ui.changeVolume(CHANGE_STATE);
+    }
+
+    if (input == BUTTON_LOOP) {
+        loopEnabled = !loopEnabled; // Toggle the state of loopEnabled
+        if (loopEnabled) {
+            ui.turnLoopLED(LOOP_LED_ON);
+            Serial.println("Loop mode enabled!");
+        } else {
+            ui.turnLoopLED(LOOP_LED_OFF);
+            Serial.println("Loop mode disabled!");
+        }
     }
 }
 
@@ -256,4 +298,59 @@ String getStatusText(int input, int state, int trainState, int station, bool ini
 
     // Return a formatted status string
     return "Input: " + inputText + ", State: " + stateText + ", Train State: " + trainStateText + ", Station: " + stationText + ", Initiated to Red: " + redInitText;
+}
+
+void loopAnalysis() {
+    static unsigned long loopStartTime = 0;
+    static unsigned long loopEndTime = 0;
+    static unsigned long minLoopTime = 0xFFFFFFFF;
+    static unsigned long maxLoopTime = 0;
+    static unsigned long loopCount = 0;
+    static unsigned long totalLoopTime = 0;
+    static unsigned long lastPrintTime = 0;
+
+    // Measure the start time of the loop
+    if (loopStartTime == 0) {
+        loopStartTime = micros();
+        return;
+    }
+
+    // Measure the end time of the loop
+    loopEndTime = micros();
+    unsigned long loopDuration = loopEndTime - loopStartTime;
+
+    // Update statistics
+    minLoopTime = min(minLoopTime, loopDuration);
+    maxLoopTime = max(maxLoopTime, loopDuration);
+    totalLoopTime += loopDuration;
+    loopCount++;
+
+    // Print analysis every second (1000 milliseconds)
+    if (millis() - lastPrintTime >= 1000) {
+        Serial.println("---- Loop Analysis (Microseconds) ----");
+        Serial.print("Min Loop Time: ");
+        Serial.print(minLoopTime);
+        Serial.println(" us");
+
+        Serial.print("Max Loop Time: ");
+        Serial.print(maxLoopTime);
+        Serial.println(" us");
+
+        Serial.print("Avg Loop Time: ");
+        Serial.print(totalLoopTime / loopCount);
+        Serial.println(" us");
+
+        Serial.print("Loop Count: ");
+        Serial.println(loopCount);
+
+        // Reset statistics for the next analysis period
+        minLoopTime = 0xFFFFFFFF;
+        maxLoopTime = 0;
+        totalLoopTime = 0;
+        loopCount = 0;
+        lastPrintTime = millis(); // Update the last print time
+    }
+
+    // Reset loop start time for the next measurement
+    loopStartTime = loopEndTime;
 }

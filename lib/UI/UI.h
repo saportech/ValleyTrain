@@ -43,7 +43,7 @@ public:
     void playSound();
     void setupPinsAndSensors();
     void changeVolume(int volume);
-
+    void turnLoopLED(int state);
 private:
     BUTTON_SENSORS_INPUTS buttonState;
     void printButtonName(BUTTON_SENSORS_INPUTS button);
