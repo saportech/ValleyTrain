@@ -61,6 +61,7 @@ void vallleyTrainStateMachine() {
         TURN_GREEN_LIGHT_ON_AT_STATION_X,
         WAITING_AT_STATION_X,
         GOING_TO_LAST_STATION,
+        WAIT_BEFORE_GOING_BACKWARD,
         GOING_BACKWARD,
         WAITING_BEFORE_NEXT_LOOP
     };
@@ -80,14 +81,10 @@ void vallleyTrainStateMachine() {
         trainState = MOVING_FORWARD;
     }
     else if (input == BUTTON_BACKWARDS) {
-        if (trainState != STOPPED) {
-            train.stop();
-            trainState = STOPPED;
-            delay(GOING_BACKWARD_DELAY);
-        }
-        train.moveBackward();
-        trainState = MOVING_BACKWARD;
-        state = GOING_BACKWARD;
+        train.stop();
+        trainState = STOPPED;
+        previousMillis = millis();
+        state = WAIT_BEFORE_GOING_BACKWARD;
     }
 
     switch (state) {
@@ -96,7 +93,7 @@ void vallleyTrainStateMachine() {
                 initiatedToRed = true;
             }
             else if (trainState == MOVING_FORWARD) {
-                train.moveForward();
+                //train.moveForward();
                 initiatedToRed = false;
                 state = GOING_TO_STATION_X;
                 Serial.println("Going to station 1");
@@ -174,6 +171,13 @@ void vallleyTrainStateMachine() {
                     Serial.println("Error, station not found");
                     break;
                 }
+            }
+            break;
+        case WAIT_BEFORE_GOING_BACKWARD:
+            if (millis() - previousMillis > GOING_BACKWARD_DELAY) {
+                trainState = MOVING_BACKWARD;
+                train.moveBackward();
+                state = GOING_BACKWARD;
             }
             break;
         case GOING_BACKWARD://Train is going backwards

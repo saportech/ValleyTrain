@@ -24,8 +24,11 @@ void UI::setupPinsAndSensors() {
     pinMode(IO_IN, INPUT_PULLUP);
 
     Serial2.begin(9600, SERIAL_8N1, 34, 12);
-    setVolume(currentVolume);
-
+    delay(100);
+    executeCMD(0x06, 0, 20);
+    delay(100);
+    Serial.println("Volume set to: " + String(20));
+    
 }
 
 BUTTON_SENSORS_INPUTS UI::inputReceived() {
@@ -139,8 +142,8 @@ void UI::selectMuxChannel(int channel) {
 }
 
 void UI::playSound() {
-    executeCMD(0x0F, 0x01, 0x01);
     Serial.println("Playing sound!");
+    executeCMD(0x0F, 0x01, 0x01);
 }
 
 void UI::executeCMD(byte CMD, byte Par1, byte Par2) {
@@ -175,9 +178,8 @@ bool UI::isBusy() {
 }
 
 void UI::setVolume(int volume) {
-    executeCMD(0x06, 0, volume);
-    //delay(1);
     Serial.println("Volume set to: " + String(volume));
+    executeCMD(0x06, 0, volume);
 }
 
 void UI::changeVolume(int volume) {
