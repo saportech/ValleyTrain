@@ -21,7 +21,6 @@ void handleSoundAndLoop();
 void vallleyTrainStateMachine();
 String getStatusText(int input, int state, int trainState, int station, bool initiatedToRed);
 void loopAnalysis();
-void semaphoresTest();
 
 void setup() {
     Serial.begin(115200);
@@ -74,8 +73,10 @@ void vallleyTrainStateMachine() {
     if (input == BUTTON_PLAY_PAUSE && trainState != STOPPED) {
         train.stop();
         trainState = STOPPED;
+        state = GOING_TO_STATION_X;
     }
     else if (input == BUTTON_PLAY_PAUSE && trainState == STOPPED) {
+        initiatedToRed = false;
         state = GOING_TO_STATION_X;
         train.moveForward();
         trainState = MOVING_FORWARD;
@@ -92,8 +93,7 @@ void vallleyTrainStateMachine() {
             if (!initiatedToRed && semaphores.initToRed()) {
                 initiatedToRed = true;
             }
-            else if (trainState == MOVING_FORWARD) {
-                //train.moveForward();
+            else if (trainState == MOVING_FORWARD && initiatedToRed) {
                 initiatedToRed = false;
                 state = GOING_TO_STATION_X;
                 Serial.println("Going to station 1");
@@ -165,7 +165,7 @@ void vallleyTrainStateMachine() {
                     train.moveBackward();
                     trainState = MOVING_BACKWARD;
                     state = GOING_BACKWARD;
-                    break;                
+                    break;
                 }
                 else {
                     Serial.println("Error, station not found");
@@ -177,6 +177,7 @@ void vallleyTrainStateMachine() {
             if (millis() - previousMillis > GOING_BACKWARD_DELAY) {
                 trainState = MOVING_BACKWARD;
                 train.moveBackward();
+                previousMillis = millis();
                 state = GOING_BACKWARD;
             }
             break;
@@ -197,7 +198,7 @@ void vallleyTrainStateMachine() {
             if (!initiatedToRed && semaphores.initToRed()) {
                 initiatedToRed = true;
             }
-            if (millis() - previousMillis > WAITING_AT_SEMAPHORE_TIME) {
+            if (millis() - previousMillis > WAITING_AT_SEMAPHORE_TIME && initiatedToRed) {
                 initiatedToRed = false;
                 train.moveForward();
                 trainState = MOVING_FORWARD;
@@ -275,9 +276,12 @@ String getStatusText(int input, int state, int trainState, int station, bool ini
     switch (state) {
         case 0: stateText = "START"; break;
         case 1: stateText = "GOING_TO_STATION_X"; break;
-        case 2: stateText = "WAITING_AT_STATION_X"; break;
-        case 3: stateText = "GOING_TO_LAST_STATION"; break;
-        case 4: stateText = "GOING_BACKWARD"; break;
+        case 2: stateText = "TURN_GREEN_LIGHT_ON_AT_STATION_X"; break;
+        case 3: stateText = "WAITING_AT_STATION_X"; break;
+        case 4: stateText = "GOING_TO_LAST_STATION"; break;
+        case 5: stateText = "WAIT_BEFORE_GOING_BACKWARD"; break;
+        case 6: stateText = "GOING_BACKWARD"; break;
+        case 7: stateText = "WAITING_BEFORE_NEXT_LOOP"; break;
         default: stateText = "UNKNOWN"; break;
     }
 

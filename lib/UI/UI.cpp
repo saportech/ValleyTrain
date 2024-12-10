@@ -17,6 +17,9 @@ void UI::setupPinsAndSensors() {
         FastLED.show();
     }
 
+    leds[5] = CRGB(0, 0, 20);
+    FastLED.show();
+
     pinMode(SEL0_IN, OUTPUT);
     pinMode(SEL1_IN, OUTPUT);
     pinMode(SEL2_IN, OUTPUT);
@@ -202,4 +205,12 @@ void UI::changeVolume(int volume) {
         }
     }
     setVolume(currentVolume);
+    if (currentVolume == 0) {
+        leds[5] = CRGB(0, 0, 0);
+        FastLED.show();
+    }
+    else {
+        leds[5] = CRGB(0, 0, 20);
+        FastLED.show();
+    }
 }
