@@ -24,16 +24,20 @@ enum BUTTON_SENSORS_INPUTS {
     BUTTON_VOLUME_DOWN = 2,
     BUTTON_PLAY_PAUSE = 3,
     BUTTON_LOOP = 4,
-    BUTTON_BACKWARDS = 5,
-    SENSOR_START = 6,
-    SENSOR_STATION_1 = 7,
-    SENSOR_STATION_2 = 8,
-    SENSOR_STATION_3 = 9,
-    SENSOR_STATION_4 = 10,
-    SENSOR_STATION_5 = 11,
-    SENSOR_STATION_6 = 12,
-    SENSOR_LAST_STATION = 13,  
+    BUTTON_BACKWARDS = 5, 
     NO_INPUTS_RECEIVED = -1,
+};
+
+enum STATION_STATE {
+    STATION_NONE = -1,       // No station is active
+    STATION_START = 0,       // Starting station
+    STATION_1 = 1,
+    STATION_2 = 2,
+    STATION_3 = 3,
+    STATION_4 = 4,
+    STATION_5 = 5,
+    STATION_6 = 6,
+    STATION_LAST = 7         // Last station
 };
 
 class UI {
@@ -44,6 +48,8 @@ public:
     void setupPinsAndSensors();
     void changeVolume(int volume);
     void turnLoopLED(int state);
+    STATION_STATE sampleStations();  // Updated to return the station state
+
 private:
     BUTTON_SENSORS_INPUTS buttonState;
     void printButtonName(BUTTON_SENSORS_INPUTS button);
@@ -53,6 +59,10 @@ private:
     void executeCMD(byte CMD, byte Par1, byte Par2);
     CRGB leds[NUM_LEDS];
     int currentVolume = 20;
+
+    // Debouncing for stations
+    unsigned long stationDebounceTimes[8] = {0}; // For debouncing signals
+    bool stationStableStates[8] = {false};      // Track stable states of station signals
 };
 
 #endif // UI_H

@@ -1,5 +1,8 @@
 #include "UI.h"
 
+//const int stationPins[] = {36, 39, 34, 35, 33, 16, 17, 23};
+const int stationPins[] = {36, 34, 35, 33, 16, 17, 23, 39};
+
 UI::UI() {
 
 }
@@ -17,8 +20,12 @@ void UI::setupPinsAndSensors() {
         FastLED.show();
     }
 
-    leds[5] = CRGB(0, 0, 20);
+    leds[5] = CRGB(0, 0, 200);
     FastLED.show();
+
+    for (int i = 0; i < 8; i++) {
+        pinMode(stationPins[i], INPUT_PULLUP);
+    }
 
     pinMode(SEL0_IN, OUTPUT);
     pinMode(SEL1_IN, OUTPUT);
@@ -34,14 +41,40 @@ void UI::setupPinsAndSensors() {
     
 }
 
+STATION_STATE UI::sampleStations() {
+    const unsigned long debounceDelay = 30; // Debounce delay in milliseconds
+
+    for (int i = 0; i < 8; i++) {
+        int stationState = digitalRead(stationPins[i]); // Read the pin state
+
+        if (stationState == LOW) {
+            // If the station is LOW, check debounce time
+            if ((millis() - stationDebounceTimes[i]) > debounceDelay) {
+                if (!stationStableStates[i]) { // If this is a new stable state
+                    stationStableStates[i] = true; // Mark as stable LOW
+                    Serial.println("Station " + String(i) + " is LOW");
+                    return static_cast<STATION_STATE>(i); // Return corresponding station
+                }
+            }
+        } else {
+            // Reset debounce timer and stable state if the station is HIGH
+            stationStableStates[i] = false;
+            stationDebounceTimes[i] = millis();
+        }
+    }
+    return STATION_NONE; // Return STATION_NONE if no station is active
+}
+
 BUTTON_SENSORS_INPUTS UI::inputReceived() {
     static int currentChannel = 0;
     static unsigned long lastMillis = 0;
     static unsigned long lastButtonPressTime = 0;
     static unsigned long buttonHoldStartTime[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     #define HOLD_TIME_THRESHOLD 5
+    #define HOLD_TIME_THRESHOLD_BUTTONS 150
     #define BUTTON_HOLD_DELAY 500
 
+    
     // Select the current MUX channel
     selectMuxChannel(currentChannel);
 
@@ -63,19 +96,20 @@ BUTTON_SENSORS_INPUTS UI::inputReceived() {
             }
 
             // Check if button is one of the first six real buttons and enforce delay if so
+
+            else if (millis() - buttonHoldStartTime[currentChannel] < HOLD_TIME_THRESHOLD) {
+                currentChannel = (currentChannel + 1) % 15;
+                return NO_INPUTS_RECEIVED;
+            }
             if (button <= BUTTON_BACKWARDS && millis() - lastButtonPressTime < BUTTON_HOLD_DELAY) {
                 // Skip further processing if 500ms delay is not met
                 currentChannel = (currentChannel + 1) % 15;
                 return NO_INPUTS_RECEIVED;
             }
-            //else if (button > BUTTON_BACKWARDS && millis() - buttonHoldStartTime[currentChannel] < HOLD_TIME_THRESHOLD) {
-            else if (millis() - buttonHoldStartTime[currentChannel] < HOLD_TIME_THRESHOLD) {
-
-                // Skip further processing if 400ms hold time is not met
+            else if (button <= BUTTON_BACKWARDS && millis() - buttonHoldStartTime[currentChannel] < HOLD_TIME_THRESHOLD_BUTTONS) {
                 currentChannel = (currentChannel + 1) % 15;
                 return NO_INPUTS_RECEIVED;
             }
-
             // Update the last button press time for real buttons
             if (button <= BUTTON_BACKWARDS) {
                 lastButtonPressTime = millis();
@@ -99,7 +133,7 @@ BUTTON_SENSORS_INPUTS UI::inputReceived() {
 
 void UI::turnLoopLED(int state) {
     if (state == 1) {
-        leds[0] = CRGB(0, 20, 0); // Custom green with reduced intensity
+        leds[0] = CRGB(0, 200, 0); // Custom green with reduced intensity
     } else {
         leds[0] = CRGB::Black;
     }
@@ -122,15 +156,7 @@ void UI::printButtonName(BUTTON_SENSORS_INPUTS button) {
         case BUTTON_PLAY_PAUSE: Serial.println("Button pressed: BUTTON_PLAY_PAUSE"); break;
         case BUTTON_LOOP: Serial.println("Button pressed: BUTTON_LOOP"); break;
         case BUTTON_BACKWARDS: Serial.println("Button pressed: BUTTON_BACKWARDS"); break;
-        case SENSOR_START: Serial.println("Button pressed: SENSOR_START"); break;
-        case SENSOR_STATION_1: Serial.println("Button pressed: SENSOR_STATION_1"); break;
-        case SENSOR_STATION_2: Serial.println("Button pressed: SENSOR_STATION_2"); break;
-        case SENSOR_STATION_3: Serial.println("Button pressed: SENSOR_STATION_3"); break;
-        case SENSOR_STATION_4: Serial.println("Button pressed: SENSOR_STATION_4"); break;
-        case SENSOR_STATION_5: Serial.println("Button pressed: SENSOR_STATION_5"); break;
-        case SENSOR_STATION_6: Serial.println("Button pressed: SENSOR_STATION_6"); break;
-        case SENSOR_LAST_STATION: Serial.println("Button pressed: SENSOR_LAST_STATION"); break;
-        default: Serial.println("Button pressed: NO_INPUTS_RECEIVED"); break;
+        //default: Serial.println("Button pressed: NO_INPUTS_RECEIVED"); break;
     }
 
     // Update last print time after a print is made
@@ -210,7 +236,7 @@ void UI::changeVolume(int volume) {
         FastLED.show();
     }
     else {
-        leds[5] = CRGB(0, 0, 20);
+        leds[5] = CRGB(0, 0, 200);
         FastLED.show();
     }
 }

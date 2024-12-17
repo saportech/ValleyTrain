@@ -12,7 +12,7 @@ void Semaphore::init() {
     pinMode(SEL3, OUTPUT);
 
     // Initialize all semaphores to LOW (inactive) state
-    digitalWrite(MUX_OUTPUT_PIN, LOW);
+    digitalWrite(MUX_OUTPUT_PIN, HIGH);
 }
 // Function to set all semaphores to RED non-blockingly
 bool Semaphore::initToRed() {
@@ -61,7 +61,7 @@ bool Semaphore::setSemaphore(uint8_t id, SemaphoreState state) {
             selectMuxChannel(greenChannel);  // Select GREEN channel for this semaphore
         }
 
-        digitalWrite(MUX_OUTPUT_PIN, HIGH);  // Set the color to HIGH to start the pulse
+        digitalWrite(MUX_OUTPUT_PIN, LOW);  // Set the color to LOW to start the pulse
         pulseStartTime = millis();           // Record the pulse start time
         isPulsing = true;                    // Set pulsing state
         currentSemaphoreId = id;             // Store the semaphore ID for later printing
@@ -71,7 +71,7 @@ bool Semaphore::setSemaphore(uint8_t id, SemaphoreState state) {
 
     // Check if the pulse duration has passed
     if (isPulsing && (millis() - pulseStartTime >= PULSE_DURATION)) {
-        digitalWrite(MUX_OUTPUT_PIN, LOW);   // Turn off the selected color
+        digitalWrite(MUX_OUTPUT_PIN, HIGH);   // Turn off the selected color
         isPulsing = false;                   // Reset pulsing state
 
         // Print the semaphore ID and final color after the pulse is complete

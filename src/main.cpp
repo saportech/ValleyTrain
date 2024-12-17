@@ -14,12 +14,13 @@ UI ui;
 Train train;
 Semaphore semaphores;
 int input;
+STATION_STATE activeStation = STATION_NONE;
 
 bool loopEnabled = false;
 
 void handleSoundAndLoop();
 void vallleyTrainStateMachine();
-String getStatusText(int input, int state, int trainState, int station, bool initiatedToRed);
+String getStatusText(int input, int activeStation, int state, int trainState, int station, bool initiatedToRed);
 void loopAnalysis();
 
 void setup() {
@@ -35,6 +36,8 @@ void setup() {
 void loop() {
 
     input = ui.inputReceived();
+
+    activeStation = ui.sampleStations();
 
     handleSoundAndLoop();
 
@@ -101,34 +104,34 @@ void vallleyTrainStateMachine() {
             break;
         case GOING_TO_STATION_X://Train is going to one of the stations
             
-            switch (input)
+            switch (activeStation)
             {
-                case SENSOR_STATION_1:
+                case STATION_1:
                     station = 1;
                     break;
-                case SENSOR_STATION_2:
+                case STATION_2:
                     station = 2;
                     break;
-                case SENSOR_STATION_3:
+                case STATION_3:
                     station = 3;
                     break;
-                case SENSOR_STATION_4:  
+                case STATION_4:  
                     station = 4;
                     break;
-                case SENSOR_STATION_5:
+                case STATION_5:
                     station = 5;
                     break;
-                case SENSOR_STATION_6:
+                case STATION_6:
                     station = 6;
                     break;
-                case SENSOR_LAST_STATION:
+                case STATION_LAST:
                     station = 7;
                     break;
                 default:
                     break;
             }
             
-            if (input == SENSOR_STATION_1 || input == SENSOR_STATION_2 || input == SENSOR_STATION_3 || input == SENSOR_STATION_4 || input == SENSOR_STATION_5 || input == SENSOR_STATION_6 || input == SENSOR_LAST_STATION) {
+            if (activeStation == STATION_1 || activeStation == STATION_2 || activeStation == STATION_3 || activeStation == STATION_4 || activeStation == STATION_5 || activeStation == STATION_6 || activeStation == STATION_LAST) {
                 train.stop();
                 trainState = STOPPED;
                 state = TURN_GREEN_LIGHT_ON_AT_STATION_X;
@@ -182,7 +185,8 @@ void vallleyTrainStateMachine() {
             }
             break;
         case GOING_BACKWARD://Train is going backwards
-            if (input == SENSOR_START && trainState == MOVING_BACKWARD) {
+            if (activeStation == STATION_START && trainState == MOVING_BACKWARD) {
+                Serial.println("Reached Start Station");
                 train.stop();
                 trainState = STOPPED;
                 station = 0;
@@ -247,7 +251,7 @@ static bool firstTimePlaying = true;
     }
 }
 
-String getStatusText(int input, int state, int trainState, int station, bool initiatedToRed) {
+String getStatusText(int input, int activeStation, int state, int trainState, int station, bool initiatedToRed) {
     String stateText;
     String trainStateText;
     String stationText;
@@ -261,15 +265,22 @@ String getStatusText(int input, int state, int trainState, int station, bool ini
         case BUTTON_PLAY_PAUSE: inputText = "BUTTON_PLAY_PAUSE"; break;
         case BUTTON_LOOP: inputText = "BUTTON_LOOP"; break;
         case BUTTON_BACKWARDS: inputText = "BUTTON_BACKWARDS"; break;
-        case SENSOR_START: inputText = "SENSOR_START"; break;
-        case SENSOR_STATION_1: inputText = "SENSOR_STATION_1"; break;
-        case SENSOR_STATION_2: inputText = "SENSOR_STATION_2"; break;
-        case SENSOR_STATION_3: inputText = "SENSOR_STATION_3"; break;
-        case SENSOR_STATION_4: inputText = "SENSOR_STATION_4"; break;
-        case SENSOR_STATION_5: inputText = "SENSOR_STATION_5"; break;
-        case SENSOR_STATION_6: inputText = "SENSOR_STATION_6"; break;
-        case SENSOR_LAST_STATION: inputText = "SENSOR_LAST_STATION"; break;
         default: inputText = "NO_INPUTS_RECEIVED"; break;
+    }
+
+    if (activeStation != STATION_NONE) {
+        // Handle the active station
+        switch (activeStation) {
+            case STATION_START: Serial.println("Active: STATION_START"); break;
+            case STATION_1: Serial.println("Active: STATION_1"); break;
+            case STATION_2: Serial.println("Active: STATION_2"); break;
+            case STATION_3: Serial.println("Active: STATION_3"); break;
+            case STATION_4: Serial.println("Active: STATION_4"); break;
+            case STATION_5: Serial.println("Active: STATION_5"); break;
+            case STATION_6: Serial.println("Active: STATION_6"); break;
+            case STATION_LAST: Serial.println("Active: STATION_LAST"); break;
+            default: break;
+        }
     }
 
     // Convert state to human-readable text
