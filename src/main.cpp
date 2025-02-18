@@ -21,12 +21,13 @@ bool loopEnabled = false;
 void handleSoundAndLoop();
 void vallleyTrainStateMachine();
 String getStatusText(int input, int activeStation, int state, int trainState, int station, bool initiatedToRed);
+
 void loopAnalysis();
 
 void setup() {
     Serial.begin(115200);
     Serial.println("Starting Valley Train");
-
+    delay(1000);
     ui.setupPinsAndSensors();
     train.initTrain();
     semaphores.init();
@@ -216,6 +217,7 @@ void vallleyTrainStateMachine() {
 
 void handleSoundAndLoop() {
 static unsigned long lastSoundTime = 0;
+static unsigned long lastLedsUpdateTime = 0;
 static bool firstTimePlaying = true;
 #define PLAYING_TIME 324000
 
@@ -248,6 +250,20 @@ static bool firstTimePlaying = true;
             ui.turnLoopLED(LOOP_LED_OFF);
             Serial.println("Loop mode disabled!");
         }
+    }
+
+    if (millis() - lastLedsUpdateTime > 100 ) {
+        if (loopEnabled) {
+            ui.turnLoopLED(LOOP_LED_ON);
+            Serial.println("Loop mode enabled!");
+        } else {
+            ui.turnLoopLED(LOOP_LED_OFF);
+            Serial.println("Loop mode disabled!");
+        }
+
+        ui.updateSoundLed();//Just to update the LED
+
+        lastLedsUpdateTime = millis();
     }
 }
 

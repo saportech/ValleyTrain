@@ -12,7 +12,7 @@ void UI::setupPinsAndSensors() {
     FastLED.show();
 
     //show leds for testing
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < NUM_LEDS; i++) {
         leds[i] = CRGB::Red;
         FastLED.show();
         delay(100);
@@ -20,7 +20,7 @@ void UI::setupPinsAndSensors() {
         FastLED.show();
     }
 
-    leds[5] = CRGB(0, 0, 200);
+    leds[NUM_LEDS - 1] = CRGB(0, 0, 200);
     FastLED.show();
 
     for (int i = 0; i < 8; i++) {
@@ -71,7 +71,7 @@ BUTTON_SENSORS_INPUTS UI::inputReceived() {
     static unsigned long lastButtonPressTime = 0;
     static unsigned long buttonHoldStartTime[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     #define HOLD_TIME_THRESHOLD 5
-    #define HOLD_TIME_THRESHOLD_BUTTONS 150
+    #define HOLD_TIME_THRESHOLD_BUTTONS 20
     #define BUTTON_HOLD_DELAY 500
 
     
@@ -232,11 +232,21 @@ void UI::changeVolume(int volume) {
     }
     setVolume(currentVolume);
     if (currentVolume == 0) {
-        leds[5] = CRGB(0, 0, 0);
+        leds[1] = CRGB(0, 0, 0);
         FastLED.show();
     }
     else {
-        leds[5] = CRGB(0, 0, 200);
+        leds[1] = CRGB(0, 0, 200);
         FastLED.show();
     }
+}
+
+void UI::updateSoundLed() {
+    if (currentVolume == 0) {
+        leds[1] = CRGB(0, 0, 0);
+    }
+    else {
+        leds[1] = CRGB(0, 0, 200);
+    }
+    FastLED.show();
 }

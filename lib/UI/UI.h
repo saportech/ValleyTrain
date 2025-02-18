@@ -5,7 +5,7 @@
 #include <FastLED.h>
 
 // Pin definitions
-#define NUM_LEDS 6  // Increased to handle the 6 additional LEDs
+#define NUM_LEDS 2  // Increased to handle the 6 additional LEDs
 #define DATA_PIN 26
 
 #define SEL0_IN 2
@@ -48,6 +48,7 @@ public:
     void setupPinsAndSensors();
     void changeVolume(int volume);
     void turnLoopLED(int state);
+    void updateSoundLed();
     STATION_STATE sampleStations();  // Updated to return the station state
 
 private:
