@@ -15,27 +15,40 @@ void Semaphore::init() {
     digitalWrite(MUX_OUTPUT_PIN, HIGH);
 }
 // Function to set all semaphores to RED non-blockingly
+// bool Semaphore::initToRed() {
+//     static uint8_t currentSemaphore = 1;  // Start from 1 to match station numbering
+//     static bool allDone = false;
+
+//     if (allDone) {
+//         allDone = false;       // Reset for the next call
+//         currentSemaphore = 1;  // Reset to start with the first semaphore
+//         Serial.println("All semaphores set to RED");
+//         return true;           // Indicate all semaphores have been set to RED
+//     }
+
+//     // Call setSemaphore for the current semaphore and check if the pulse is complete
+//     if (setSemaphore(currentSemaphore, RED)) {
+//         currentSemaphore++;        // Move to the next semaphore
+//         if (currentSemaphore > 6) {
+//             allDone = true;        // Set flag when all semaphores are processed
+//         }
+//     }
+
+//     return false; // Return false until all semaphores are set
+// }
+
 bool Semaphore::initToRed() {
-    static uint8_t currentSemaphore = 1;  // Start from 1 to match station numbering
-    static bool allDone = false;
-
-    if (allDone) {
-        allDone = false;       // Reset for the next call
-        currentSemaphore = 1;  // Reset to start with the first semaphore
-        Serial.println("All semaphores set to RED");
-        return true;           // Indicate all semaphores have been set to RED
-    }
-
-    // Call setSemaphore for the current semaphore and check if the pulse is complete
-    if (setSemaphore(currentSemaphore, RED)) {
-        currentSemaphore++;        // Move to the next semaphore
-        if (currentSemaphore > 6) {
-            allDone = true;        // Set flag when all semaphores are processed
+    for (uint8_t currentSemaphore = 1; currentSemaphore <= 6; currentSemaphore++) {
+        while (!setSemaphore(currentSemaphore, RED)) {
+            // Wait until the semaphore is set before moving to the next one
+            delay(1);  // Small delay to prevent watchdog timer resets
         }
     }
-
-    return false; // Return false until all semaphores are set
+    Serial.println("All semaphores set to RED");
+    return true;  // Return only when all semaphores are set
 }
+
+
 // Function to pulse the semaphore channel and return true when pulse is complete
 bool Semaphore::setSemaphore(uint8_t id, SemaphoreState state) {
     static unsigned long pulseStartTime = 0;

@@ -2,6 +2,10 @@
 #include "UI.h"
 #include "TRAIN.h"
 #include "SEMAPHORE_T.h"
+#include <EEPROM.h>
+
+#define EEPROM_SIZE 1  // We only need to store 1 byte for loopEnabled
+#define EEPROM_ADDR 0
 
 #define MOVING_FORWARD 0
 #define MOVING_BACKWARD 1
@@ -17,7 +21,7 @@ int input;
 STATION_STATE activeStation = STATION_NONE;
 
 bool loopEnabled = false;
-
+bool firstLoopEnabled = false; 
 void handleSoundAndLoop();
 void vallleyTrainStateMachine();
 String getStatusText(int input, int activeStation, int state, int trainState, int station, bool initiatedToRed);
@@ -31,6 +35,22 @@ void setup() {
     ui.setupPinsAndSensors();
     train.initTrain();
     semaphores.init();
+
+    EEPROM.begin(EEPROM_SIZE);
+    
+    // Read stored value from EEPROM
+    loopEnabled = EEPROM.read(EEPROM_ADDR);
+    
+    Serial.print("Loop mode loaded: ");
+    Serial.println(loopEnabled ? "ENABLED" : "DISABLED");
+
+    // Set the loop LED accordingly
+    if (loopEnabled) {
+        ui.turnLoopLED(LOOP_LED_ON);
+        firstLoopEnabled = true;
+    } else {
+        ui.turnLoopLED(LOOP_LED_OFF);
+    }
 
 }
 
@@ -68,6 +88,11 @@ void vallleyTrainStateMachine() {
         GOING_BACKWARD,
         WAITING_BEFORE_NEXT_LOOP
     };
+
+    if (firstLoopEnabled) {
+        state = WAITING_BEFORE_NEXT_LOOP;
+        firstLoopEnabled = false;
+    }
 
     if (millis() - lastPrintTime > PRINT_TIME) {
         //Serial.println(getStatusText(input, state, trainState, station, initiatedToRed));
@@ -243,6 +268,10 @@ static bool firstTimePlaying = true;
 
     if (input == BUTTON_LOOP) {
         loopEnabled = !loopEnabled; // Toggle the state of loopEnabled
+
+        EEPROM.write(EEPROM_ADDR, loopEnabled);
+        EEPROM.commit(); 
+
         if (loopEnabled) {
             ui.turnLoopLED(LOOP_LED_ON);
             Serial.println("Loop mode enabled!");
@@ -252,13 +281,13 @@ static bool firstTimePlaying = true;
         }
     }
 
-    if (millis() - lastLedsUpdateTime > 100 ) {
+    if (millis() - lastLedsUpdateTime > 2000 ) {
         if (loopEnabled) {
             ui.turnLoopLED(LOOP_LED_ON);
-            Serial.println("Loop mode enabled!");
+            //Serial.println("Loop mode enabled!");
         } else {
             ui.turnLoopLED(LOOP_LED_OFF);
-            Serial.println("Loop mode disabled!");
+            //Serial.println("Loop mode disabled!");
         }
 
         ui.updateSoundLed();//Just to update the LED
